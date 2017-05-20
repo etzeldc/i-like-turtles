@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>I Like Turtles</title>
+	<script
+  src="https://code.jquery.com/jquery-3.2.1.min.js"
+  integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+  crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  
+  <style> 
+	/* Adding a little CSS to the divs that will display info on the turtles w/o actually creating a CSS file */
+  	.turtle {
+  		border: 1px solid #333;
+  		border-radius: 3px;
+  		padding: 1em;
+  	}
+
+  	.turtles {
+  		margin: 1em;
+  		padding: 1em;
+  		border-bottom: 1px solid green;
+  	}
+  </style>
+</head>
+<body>
+	<!-- Repeatable div to contain a display field, counter button, and delete button for each turtle -->
+	<div id="turtleTemplate" style="display: none">	
+		<div class="col-md-3"> 
+			<div class="turtle">
+				<h3 class="turtle_name"></h3>
+				<p class="turtle_weapon"></p>
+				<p class="pizza_count"></p>
+				<button class="btn btn-info pizza">Buy Pizza</button>
+				<button class="btn btn-warning soup">Make Turtle Soup</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Div to contain the input fields and submission buttons for login and registration -->
+	<div class="container login-form" style="display: none">
+		<div class="row">
+			<div class="col-sm-4 col-sm-offset-4">
+				<div id="login-error"></div>
+				<input type="text" id="username">
+				<input type="text" id="password">
+				<button class="btn btn-info" id="login">Login</button>
+				<button class="btn btn-warning" id="register">Register</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Div to contain a field to output each turtle's info (in the form of the repeatable div container above) -->
+	<div class="container">
+		<div class="turtles">
+			<div id="output" class="row"></div>
+		</div>
+	</div>
+
+	<!-- Div to contain input fields for the information associated with creating new turtle profiles -->
+	<div class="container">
+		<div class="row">
+			<div class="col-sm-4 col-sm-offset-4">
+				Turtle Name: <input type="text" id="newTurtleName" class="form-control">
+				Turtle Color: <input type="text" id="newTurtleColor" class="form-control">
+				Turtle Weapon: <input type="text" id="newTurtleWeapon" class="form-control">
+				<button class="btn btn-info" id="newTurtleSubmit">Submit Turtle</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- And now, on to jQuery operations!!! -->
+	<script>
+		function generateListener(turtle) { // Creates a closure function that takes in a turtle's entire profile,
+			return function() { // and returns a function that...
+				$.post('/api/updatepizza', {_id: turtle._id}, function(data) { // sends a post request to the server's endpoint associated with that turtle's counter, and calls back by...
+					console.log(data); // consoles the data, and...
+					getTurtles(); // re-calls the function that "gets" all of the turtles, but now updated with that turtle's current pizza count.
+				}) // End of the post request.
+			} // End of the function that this closure function returns.
+		} // Ends the closure function associated with updating a turtle's counter.
+
+		function makeListener(turtle) { // Creates a closure function that takes in a turtle's entire profile,
+			return function() { // and returns a function that...
+				$.post('/api/soupson', {_id: turtle._id}, function(data) { // sends a post request to the server's endpoint associated with deleting that turtle's profile, and calls back by...
+					console.log(data); // consoles the data, and...
+					getTurtles(); // re-calls the function that "gets" all of the turtles by updating them without the previously deleted turtle profile.
+				}) // End of the post request.
+			} // End of the function that this closure function returns.
+		}// Ends the closure function associated with updating a turtle's counter.
+
+		function getTurtles() { // Creates a function to get the turtles' profiles from the server that...
+			$.ajax({ // initiates an AJAX call that...
+				method: "GET", // sends a get request...
+				url: '/api/turtles', // to the server's endpoint associated with the turtle's displayed information, and...
+				success: function(response){ // calls back by...
+					$('#output').empty(); // first wiping out all of the turtles' profiles from the div that contains their output,
+					for (var i = 0; i < response.length; i++) { // and then rebuilding them one by one, counting through each profile,
+						var turtleDiv = $('#turtleTemplate').children().first().clone(); // while using the repeatable div as a template for repopulation/.
+						turtleDiv.find('.turtle_name').text(response[i].name); // Appends the text of the current profile's name to the name field in the template div.
+						turtleDiv.find('.turtle_weapon').text(response[i].weapon); // Appends the text of the current profile's weapon to the weapon field in the template div.
+						turtleDiv.css({color: response[i].color}); // Assigns the entire text of the curent profile's template div their associated color.
+						turtleDiv.find('.pizza').click(generateListener(response[i])); // Appends a click listener to the pizza counter button in the current profile's template div, and...
+						turtleDiv.find('.pizza_count').text(response[i].pizza); // appends the text of the current profile's pizza count to the pizza count field in that template div.
+						turtleDiv.find('.soup').click(makeListener(response[i])); // Appends a click listener to the delete button in the current profile's template div.
+						$('#output').append(turtleDiv); // Appends the completed template div of the current profile to the div that contains all of the profiles' outputs.
+					} // Ends the for loop that regenerates the turtles' profile outputs.
+				}, // Ends the call back function of the get request to the server.
+				error: function(err) { // Provides an error handler that...
+					$('.login-form').show(); // will redisplay the login/registration div if accessing the turtle endpoint failed.
+				} // Ends the error handler function.
+			}); // Ends the AJAX call.
+		} // Ends the function that displays the turtles' profiles.
+
+		$('#newTurtleSubmit').click(function() { // Creates a click listener for the submit button in the div containing input fields for new turtle info, and calls back by...
+			$.post('/api/newTurtle', { // initiating a post request to the server's endpoint associated with submitting a new turtle profile.
+				name: $('#newTurtleName').val(), // Appends the given name in the post request to the new turtle's profile.
+				color: $('#newTurtleColor').val(), // Appends the given color in the post request to the new turtle's profile.
+				weapon: $('#newTurtleWeapon').val(), // Appends the given weapon in the post request to the new turtle's profile.
+				pizza: 0 // Sets the pizza count of the new turtle to zero.
+			}, function() { // Calls back when successful by...
+				$('#newTurtleName').val(''); // clearing...
+				$('#newTurtleColor').val(''); // these...
+				$('#newTurtleWeapon').val(''); // values...
+				// and re-build the turtles div from the database
+				getTurtles(); // and re-calling the function that "gets" all the turtles by updating them, now with a new profile.
+			}); // Ends the call back function of the post request to the server.
+		}); // Ends the call back function of the click listener for the new turtle submission.
+
+		$(document).ready(function() { // Calls back a function when the document has finished loading and is "ready" that...
+			getTurtles(); // calls the function that displays the turtles' profile.
+		}); // Ends the call back function called when the document has finished loading.
+
+		$('#login').click(function() { // Creates a click listener for the login button in the div containing login/registration input fields, and calls back by...
+			$.post('/api/login', { // initiating a post request to the server's endpoint associated with logging in a user.
+				username: $('#username').val(), // Appends the given username in the post request to the user's login.
+				password: $('#password').val() // Appends the given password in the post request to the user's login.
+			}, function(res) { // Calls back when successful by...
+				// If we haven't logged in, display an error
+				if (res === "error") { // checking to see if the server's response was an error, and...
+					$('#login-error').text('Error: Username or password incorrect.'); // appending an error message to the div that displays errors (within the div containing login/registration inputs),
+				} else { // or, if there wasn't an error,
+					$('.login-form').hide(); // hiding the div containing the login/registration inputs, and...
+					getTurtles(); // calling the function that displays the turtles' profile.
+				} // Ends the if/else statments.
+			}); // Ends the call back function of the post request to the server.
+		}); // Ends the call back function of the click listener for the user login.
+
+		$('#register').click(function() { // Creates a click listener for the register button in the div containing login/registration input fields, and calls back by...
+			$.post('/api/register', { // initiating a post request to the server's endpoint associated with registering a new user.
+				username: $('#username').val(), // Appends the given username in the post request to the new user's registration.
+				password: $('#password').val() // Appends the given password in the post request to the new user's registration.
+			}, function(res) { // Calls back when successful by...
+				// Display the result to the user
+				if (res === "error") { // checking to see if the server's response was an error, and...
+					$('#login-error').text('Error: Could not register user.'); // appending an error message to the div that displays errors (within the div containing login/registration inputs),
+				} else { // or, if there wasn't an error,
+					$('#login-error').text('Registered! Try logging in...'); // appending a success message, that prompts the new user to login, to the div that displays errors (within the div containing login/registration inputs).
+				} // Ends the if/else statments.
+			}); // Ends the call back function of the post request to the server.
+		}); // Ends the call back function of the click listener for the new user registration.
+	</script>
+</body>
+</html>
